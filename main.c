@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <curses.h>
 
-#define NAME "Fyra Editor"
+#define NAME "Fyra Editor by NDRAEY"
 #define NAMELEN strlen(NAME)
 #define VERSION "1.0.0"
 
@@ -145,7 +145,6 @@ void init_base() {
 	/////////////
 
 	buffer = calloc(sizeof(char), BUFFER_INCREMENT);
-	memcpy(buffer, "Hello\nworld", 11);
 	bufsize = BUFFER_INCREMENT;
 }
 
@@ -311,11 +310,12 @@ int main() {
 	
 	wrefresh(textbox);
 
+	update_textbox();
+
 	draw_lower_bar();
 	wrefresh(lowerbar);
 
 	focus_textbox();
-	update_textbox();
 
 	int ch;
 
@@ -334,7 +334,6 @@ int main() {
 		draw_lower_bar();
 		wrefresh(lowerbar);
 		focus_textbox();
-
 	}
 
 	endwin();
