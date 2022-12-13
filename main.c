@@ -31,6 +31,8 @@ size_t bufsize = 0;
 
 size_t rema = 0;
 
+int tx, ty;
+
 void init_colors() {
 	start_color();
 
@@ -115,7 +117,6 @@ void draw_lower_bar() {
 
 	wmove(lowerbar, 0, 0);
 
-	size_t tx, ty = 0;
 	getyx(textbox, ty, tx);
 	
 	wprintw(lowerbar, "L-%d C-%d // B-%d bytes // WR-%d // %d", 
@@ -144,6 +145,7 @@ void init_base() {
 	/////////////
 
 	buffer = calloc(sizeof(char), BUFFER_INCREMENT);
+	memcpy(buffer, "Hello\nworld", 11);
 	bufsize = BUFFER_INCREMENT;
 }
 
@@ -185,9 +187,7 @@ char process_character(int ch) {
 	// if(ch == KEY_BACKSPACE) { // Backspace
 	if(ch == '\b' || ch == 0x7f) { // Backspace
 		// set_text_pos();
-		size_t tx = 0, ty = 0;
 		size_t tmx = 0;
-		getyx(textbox, ty, tx);
 		getmaxyx(textbox, tmp, tmx);
 
 		if(tx<=0) {
@@ -222,54 +222,42 @@ char process_character(int ch) {
 
 		exit(0);
 	}else if(ch==KEY_UP) {
-		size_t tx, ty = 0;
-		getyx(textbox, ty, tx);
-
 		size_t correction;
 
 		if(ty > 0) {
 			if((correction = max_pos_at_y(ty-1)) < tx) {
 				tx = correction;
 			}
-			wmove(textbox, ty-1, tx);
+			ty--;
 		}
 
 		focus_textbox();
 
 		return 1;
 	}else if(ch==KEY_DOWN) {
-		size_t tx, ty = 0;
-		getyx(textbox, ty, tx);
-
 		size_t correction;
 
 		if(ty < get_text_max_y()) {
 			if(tx > (correction = max_pos_at_y(ty-1))) {
 				tx = correction;
 			}
-			wmove(textbox, ty+1, tx);
+			ty++;
 		}
 
 		focus_textbox();
 
 		return 1;
 	}else if(ch==KEY_LEFT) {
-		size_t tx, ty = 0;
-		getyx(textbox, ty, tx);
-
 		if(tx > 0) {
-			wmove(textbox, ty, tx-1);
+			tx--;
 		}
 
 		focus_textbox();
 
 		return 1;
 	}else if(ch==KEY_RIGHT) {
-		size_t tx, ty = 0;
-		getyx(textbox, ty, tx);
-
 		if(tx < scrwidth) {
-			wmove(textbox, ty, tx+1);
+			tx++;
 		}
 
 		focus_textbox();
@@ -281,18 +269,23 @@ char process_character(int ch) {
 }
 
 void insertchar(unsigned int ch) {
-	size_t tx = 0, ty = 0;
-	getyx(textbox, ty, tx);
 	int pos = calc_buf_pos(tx, ty);
 
 	int remaining = (bufsize-pos)-1;
 
 	if(pos < 0) return;
 
-	// FIXME: This function inserts symbol to next positon instead of on current position.
-
 	memmove(buffer+pos+1, buffer+pos, remaining);
 	buffer[pos] = ch;
+
+	if(ch == '\n') {
+		ty++;
+		tx = 0;
+	}else{
+		tx++;
+	}
+
+	wmove(textbox, ty, tx);
 
 	rema = remaining;
 }
@@ -322,6 +315,7 @@ int main() {
 	wrefresh(lowerbar);
 
 	focus_textbox();
+	update_textbox();
 
 	int ch;
 
@@ -329,17 +323,18 @@ int main() {
 		ch = wgetch(textbox);
 
 		if(!process_character(ch)) {
-			waddch(textbox, ch);
-
 			insertchar(ch);
 			
 			manage_buffer();
 		}
 
+		wmove(textbox, ty, tx);
+
 		update_textbox();
 		draw_lower_bar();
 		wrefresh(lowerbar);
 		focus_textbox();
+
 	}
 
 	endwin();
