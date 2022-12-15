@@ -1,2 +1,3 @@
 all:
-	cc main.c `pkg-config --libs ncurses` -O3 -Wall -o fyra
+	cc main.c `pkg-config --libs ncurses` -Wall -Wsign-compare \
+	-Werror -o fyra

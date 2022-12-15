@@ -8,6 +8,7 @@
 
 #define NAME "Fyra Editor by NDRAEY"
 #define NAMELEN strlen(NAME)
+#define FILENAMELEN strlen(fname_full)
 #define VERSION "1.0.0"
 
 #define WHITE_ON_BLACK 1
@@ -26,12 +27,15 @@ WINDOW* lowerbar;
 
 size_t tmp;  // for supressing 'Unused variable' warning
 
+char* fname = 0;
+char* fname_full;
+
 char* buffer = 0;
 size_t bufsize = 0;
 
 size_t rema = 0;
 
-int tx, ty;
+size_t tx, ty;
 
 void init_colors() {
 	start_color();
@@ -49,11 +53,13 @@ void draw_upper_bar() {
 
 	getmaxyx(upperbar, tmp, uw);
 
-	for(size_t i = 0; i < (uw-NAMELEN)/2; i++) {
+	for(size_t i = 0; i < (uw-NAMELEN-FILENAMELEN-3)/2; i++) {
 		waddch(upperbar, ' ');
 	}
 	wprintw(upperbar, NAME);
-	for(size_t i = 0; i < (uw-NAMELEN)/2; i++) {
+	wprintw(upperbar, " (%s)", fname_full);
+	
+	for(size_t i = 0; i < (uw-NAMELEN-FILENAMELEN-2)/2; i++) {
 		waddch(upperbar, ' ');
 	}
 }
@@ -95,10 +101,12 @@ int max_pos_at_y(size_t y) {
 }
 
 void focus_textbox() {
+	/*
 	size_t tx, ty = 0;
 	getyx(textbox, ty, tx);
 
 	wmove(textbox, ty, tx);
+	*/
 	wrefresh(textbox);
 }
 
@@ -204,7 +212,7 @@ char process_character(int ch) {
 		waddch(textbox, ' ');
 		wmove(textbox, ty, tx);
 
-		///////// Lets concat two memory strings but without one character.
+		// Let's concat two memory strings but without one character.
 
 		int pos = calc_buf_pos(tx, ty);
 
@@ -247,18 +255,12 @@ char process_character(int ch) {
 
 		return 1;
 	}else if(ch==KEY_LEFT) {
-		if(tx > 0) {
-			tx--;
-		}
-
+		if(tx > 0) tx--;
 		focus_textbox();
 
 		return 1;
 	}else if(ch==KEY_RIGHT) {
-		if(tx < scrwidth) {
-			tx++;
-		}
-
+		if(tx < scrwidth) tx++;
 		focus_textbox();
 
 		return 1;
@@ -269,7 +271,6 @@ char process_character(int ch) {
 
 void insertchar(unsigned int ch) {
 	int pos = calc_buf_pos(tx, ty);
-
 	int remaining = (bufsize-pos)-1;
 
 	if(pos < 0) return;
@@ -289,13 +290,41 @@ void insertchar(unsigned int ch) {
 	rema = remaining;
 }
 
-int main() {
+void load_file(char* filename) {
+	FILE* fp = fopen(filename, "r");
+
+	if(!fp) {
+		endwin();
+		printf("Cannot open file: %s\n", fname);
+		exit(1);
+	}
+
+	fseek(fp, 0, SEEK_END);
+	bufsize = ftell(fp);
+	buffer = realloc(buffer, bufsize+(bufsize%BUFFER_INCREMENT));
+	
+	fseek(fp, 0, SEEK_SET);
+	fread(buffer, 1, bufsize, fp);
+	
+	fclose(fp);
+}
+
+int main(int argc, char* argv[]) {
+	if(argc >= 2) {
+		fname = argv[argc-1];
+	}
+	fname_full = fname==0?"No File":fname;
+
 	mainwin = initscr();
 	cbreak();
 	noecho();
 	raw();
 	
 	init_base();
+
+	if(fname != 0) {
+		load_file(fname);
+	}
 
 	upperbar = newwin(2, scrwidth, 0, 0);
 	textbox = newwin(scrheight-2, scrwidth, 2, 0);
@@ -331,7 +360,9 @@ int main() {
 		wmove(textbox, ty, tx);
 
 		update_textbox();
+		draw_upper_bar();
 		draw_lower_bar();
+		wrefresh(upperbar);
 		wrefresh(lowerbar);
 		focus_textbox();
 	}
