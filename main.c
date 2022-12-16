@@ -35,7 +35,9 @@ size_t bufsize = 0;
 
 size_t rema = 0;
 
-size_t tx, ty;
+size_t tx = 0, ty = 0;
+
+size_t lineshift = 0;
 
 void init_colors() {
 	start_color();
@@ -111,7 +113,7 @@ void focus_textbox() {
 }
 
 void lower_bar_fill_remaining() {
-	size_t lcx, lmx = 0;
+	size_t lcx = 0, lmx = 0;
 	getyx(lowerbar, tmp, lcx);
 	getmaxyx(lowerbar, tmp, lmx);
 
@@ -120,15 +122,29 @@ void lower_bar_fill_remaining() {
 	}
 }
 
+size_t get_text_max_y() {
+	size_t my = 0;
+	for(size_t i = 0, le = strlen(buffer); i < le; i++) {
+		if(buffer[i]==0) break;
+
+		if(buffer[i]=='\n') {
+			my++;
+		}
+	}
+	return my;
+}
+
 void draw_lower_bar() {
 	wattrset(lowerbar, COLOR_PAIR(BLACK_ON_WHITE));
-
 	wmove(lowerbar, 0, 0);
-
 	getyx(textbox, ty, tx);
+
+	size_t my = 0, mx = 0;
+	getmaxyx(textbox, my, mx);
 	
-	wprintw(lowerbar, "L-%d C-%d // B-%d bytes // WR-%d // %d", 
-					  ty, tx, bufsize, calc_buf_pos(tx, ty), rema
+	wprintw(lowerbar, "L-%d C-%d // B-%d bytes // WR-%d // %d // %d:%d // %d", 
+					  ty, tx, bufsize, calc_buf_pos(tx, ty),
+					  rema, my, mx, lineshift
 	);
 
 	lower_bar_fill_remaining();
@@ -166,25 +182,18 @@ void set_text_pos(size_t x, size_t y) {
 	wmove(textbox, y, x);
 }
 
-size_t get_text_max_y() {
-	size_t my = 0;
-	for(size_t i = 0, le = strlen(buffer); i < le; i++) {
-		if(buffer[i]==0) break;
-
-		if(buffer[i]=='\n') {
-			my++;
-		}
+void update_position() {
+	if(ty > scrheight - 8) {
+		lineshift++;
+	}else if(lineshift > 0 && ty == 0) {
+		lineshift--;
 	}
-	return my;
 }
 
 void update_textbox() {
-	size_t tx = 0, ty = 0;
-	getyx(textbox, ty, tx);
-
 	wclear(textbox);
 	wmove(textbox, 0, 0);
-	wprintw(textbox, "%s", buffer);
+	wprintw(textbox, "%s", buffer + calc_buf_pos(0, lineshift));
 	wmove(textbox, ty, tx);
 
 	wrefresh(textbox);
@@ -200,7 +209,6 @@ char process_character(int ch) {
 		if(tx<=0) {
 			if(ty<=0) return 1;
 			else {
-				// tx = tmx-1;
 				ty--;
 				tx = max_pos_at_y(ty)+1;
 			}
@@ -214,11 +222,14 @@ char process_character(int ch) {
 
 		// Let's concat two memory strings but without one character.
 
-		int pos = calc_buf_pos(tx, ty);
-
+		int pos = calc_buf_pos(tx, ty+lineshift);
 		memmove(buffer+pos, buffer+pos+1, bufsize-pos-1);
 
 		return 1;
+	}else if(ch==330) { // Del
+		endwin();
+		printf("Del key pressed!!!\n");
+		exit(1);
 	}else if(ch==17) { // Ctrl+Q (Ctrl+q)
 		endwin();
 
@@ -238,6 +249,7 @@ char process_character(int ch) {
 			ty--;
 		}
 
+		update_position();
 		focus_textbox();
 
 		return 1;
@@ -251,6 +263,7 @@ char process_character(int ch) {
 			ty++;
 		}
 
+		update_position();
 		focus_textbox();
 
 		return 1;
@@ -270,7 +283,7 @@ char process_character(int ch) {
 }
 
 void insertchar(unsigned int ch) {
-	int pos = calc_buf_pos(tx, ty);
+	int pos = calc_buf_pos(tx, ty+lineshift);
 	int remaining = (bufsize-pos)-1;
 
 	if(pos < 0) return;
@@ -327,7 +340,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	upperbar = newwin(2, scrwidth, 0, 0);
-	textbox = newwin(scrheight-2, scrwidth, 2, 0);
+	textbox = newwin(scrheight-4, scrwidth, 2, 0);
 	lowerbar = newwin(2, scrwidth, scrheight-2, 0);
 
 	keypad(textbox, TRUE);
