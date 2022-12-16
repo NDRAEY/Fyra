@@ -35,6 +35,7 @@ size_t bufsize = 0;
 
 size_t rema = 0;
 
+size_t  key;
 size_t tx = 0, ty = 0;
 
 size_t lineshift = 0;
@@ -87,7 +88,7 @@ int calc_buf_pos(size_t x, size_t y) {
 	return bytecount;
 }
 
-int max_pos_at_y(size_t y) {
+size_t max_pos_at_y(size_t y) {
 	size_t mx = 0, my = 0;
 
 	for(size_t i = 0, le = strlen(buffer); i < le; i++) {
@@ -138,13 +139,10 @@ void draw_lower_bar() {
 	wattrset(lowerbar, COLOR_PAIR(BLACK_ON_WHITE));
 	wmove(lowerbar, 0, 0);
 	getyx(textbox, ty, tx);
-
-	size_t my = 0, mx = 0;
-	getmaxyx(textbox, my, mx);
 	
-	wprintw(lowerbar, "L-%d C-%d // B-%d bytes // WR-%d // %d // %d:%d // %d", 
+	wprintw(lowerbar, "L-%d C-%d // B-%d bytes // WR-%d // %d", 
 					  ty, tx, bufsize, calc_buf_pos(tx, ty),
-					  rema, my, mx, lineshift
+					  rema
 	);
 
 	lower_bar_fill_remaining();
@@ -201,7 +199,7 @@ void update_textbox() {
 
 char process_character(int ch) {
 	// if(ch == KEY_BACKSPACE) { // Backspace
-	if(ch == '\b' || ch == 0x7f) { // Backspace
+	if(ch == '\b' || ch == 0x7f || ch == 263) { // Backspace
 		// set_text_pos();
 		size_t tmx = 0;
 		getmaxyx(textbox, tmp, tmx);
@@ -225,11 +223,12 @@ char process_character(int ch) {
 		int pos = calc_buf_pos(tx, ty+lineshift);
 		memmove(buffer+pos, buffer+pos+1, bufsize-pos-1);
 
+		tmp = tmx;
 		return 1;
-	}else if(ch==330) { // Del
-		endwin();
-		printf("Del key pressed!!!\n");
-		exit(1);
+	}else if(ch == 330) { // Del
+		int pos = calc_buf_pos(tx, ty);
+		memmove(buffer+pos, buffer+pos+1, bufsize+pos-1);
+		return 1;
 	}else if(ch==17) { // Ctrl+Q (Ctrl+q)
 		endwin();
 
@@ -273,7 +272,7 @@ char process_character(int ch) {
 
 		return 1;
 	}else if(ch==KEY_RIGHT) {
-		if(tx < scrwidth) tx++;
+		if(tx < max_pos_at_y(ty)) tx++;
 		focus_textbox();
 
 		return 1;
@@ -299,8 +298,6 @@ void insertchar(unsigned int ch) {
 	}
 
 	wmove(textbox, ty, tx);
-
-	rema = remaining;
 }
 
 void load_file(char* filename) {
@@ -329,7 +326,6 @@ int main(int argc, char* argv[]) {
 	fname_full = fname==0?"No File":fname;
 
 	mainwin = initscr();
-	cbreak();
 	noecho();
 	raw();
 	
@@ -363,7 +359,7 @@ int main(int argc, char* argv[]) {
 
 	for(;;) {
 		ch = wgetch(textbox);
-
+		key = ch;
 		if(!process_character(ch)) {
 			insertchar(ch);
 			
